@@ -9,7 +9,8 @@ with a stock (frozen) build, `v:Dot(w)` or `v.Magnitude` on a Vector3 value
 fails with "attempt to index vector with 'Dot'".
 
 Needs git, cmake and a C++ compiler (MSVC via a developer prompt, or gcc,
-e.g. MSYS2's; Ninja is used when installed).
+e.g. MSYS2's). Unix Makefiles are the default; Ninja can be selected
+explicitly when it is known to work on the target.
     python deobf/build_luau.py [--tag 0.739] [--src DIR] [--portable] [--jobs N]
 """
 import argparse
@@ -56,6 +57,8 @@ def main():
                     help="disable link-time optimization to reduce iSH memory use")
     ap.add_argument("--static", action="store_true",
                     help="static-link the executables (may fail on minimal Alpine/iSH installs)")
+    ap.add_argument("--ninja", action="store_true",
+                    help="use Ninja instead of the default Unix Makefiles")
     args = ap.parse_args()
     if args.jobs < 1:
         ap.error("--jobs must be at least 1")
@@ -69,7 +72,9 @@ def main():
     build = os.path.join(src, "build-deobf")
     cfg = ["cmake", "-S", src, "-B", build, "-DCMAKE_BUILD_TYPE=Release",
            "-DLUAU_BUILD_TESTS=OFF", "-DLUAU_STATIC_CRT=ON"]
-    if shutil.which("ninja"):
+    if args.ninja:
+        if not shutil.which("ninja"):
+            ap.error("--ninja requested but ninja is not installed")
         cfg += ["-G", "Ninja"]
     if not shutil.which("cl") and shutil.which("g++"):
         # MinGW/Linux gcc; static so the binary needs no compiler runtime DLLs.

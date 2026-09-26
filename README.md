@@ -53,5 +53,6 @@ python3 deobf/build_luau.py --portable --no-lto --jobs 1
 
 Increase `--jobs` only if the iSH process has enough memory. The generated
 executables are platform-specific and should be rebuilt on each target
-machine. The iSH setup uses dynamic linking because minimal Alpine
-installations may not provide everything required for static linking.
+machine. The iSH setup uses dynamic linking and Unix Makefiles because
+minimal Alpine installations may not provide everything required for static
+linking, and Ninja can crash under iSH.
