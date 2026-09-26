@@ -10,7 +10,7 @@ fails with "attempt to index vector with 'Dot'".
 
 Needs git, cmake and a C++ compiler (MSVC via a developer prompt, or gcc,
 e.g. MSYS2's; Ninja is used when installed).
-    python deobf/build_luau.py [--tag 0.739] [--src DIR] [--portable]
+    python deobf/build_luau.py [--tag 0.739] [--src DIR] [--portable] [--jobs N]
 """
 import argparse
 import os
@@ -50,7 +50,13 @@ def main():
     ap.add_argument("--src", help="existing checkout to use (default: fresh clone in a temp folder)")
     ap.add_argument("--portable", action="store_true",
                     help="gcc: no -march=native (for a binary copied to another machine)")
+    ap.add_argument("--jobs", type=int, default=1,
+                    help="parallel compiler jobs (default: %(default)s; keep this low on iSH)")
+    ap.add_argument("--no-lto", action="store_true",
+                    help="disable link-time optimization to reduce iSH memory use")
     args = ap.parse_args()
+    if args.jobs < 1:
+        ap.error("--jobs must be at least 1")
     tmp = None
     src = args.src
     if not src:
@@ -67,7 +73,9 @@ def main():
         # MinGW/Linux gcc; static so the binary needs no compiler runtime DLLs.
         # Plain -O3 ran the pipeline ~30% slower than the official MSVC build;
         # with -march=native + LTO it is a bit faster (fetched.lua 33 s vs 35 s).
-        opt = "-O3 -flto" + ("" if args.portable else " -march=native")
+        opt = "-O3" + ("" if args.no_lto else " -flto")
+        if not args.portable:
+            opt += " -march=native"
         cfg += ["-DCMAKE_C_COMPILER=gcc", "-DCMAKE_CXX_COMPILER=g++",
                 "-DCMAKE_C_FLAGS_RELEASE=%s -DNDEBUG" % opt,
                 "-DCMAKE_CXX_FLAGS_RELEASE=%s -DNDEBUG" % opt,
@@ -75,7 +83,8 @@ def main():
     run(cfg)
     # Build both executables required by the deobfuscator.
     run(["cmake", "--build", build, "--config", "Release",
-         "--target", "Luau.Repl.CLI", "Luau.Ast.CLI", "--parallel"])
+         "--target", "Luau.Repl.CLI", "Luau.Ast.CLI",
+         "--parallel", str(args.jobs)])
     names = ("luau.exe", "luau-ast.exe") if os.name == "nt" else ("luau", "luau-ast")
     for exe in names:
         for cand in (os.path.join(build, "Release", exe), os.path.join(build, exe)):
