@@ -73,17 +73,19 @@ def main():
                 "-DCMAKE_CXX_FLAGS_RELEASE=%s -DNDEBUG" % opt,
                 "-DCMAKE_EXE_LINKER_FLAGS=-static " + opt]
     run(cfg)
-    run(["cmake", "--build", build, "--config", "Release", "--target", "Luau.Repl.CLI",
-         "--parallel"])
-    exe = "luau.exe" if os.name == "nt" else "luau"
-    for cand in (os.path.join(build, "Release", exe), os.path.join(build, exe)):
-        if os.path.exists(cand):
-            os.makedirs(BIN, exist_ok=True)
-            shutil.copy2(cand, os.path.join(BIN, exe))
-            print("[+] wrote " + os.path.join(BIN, exe), file=sys.stderr)
-            break
-    else:
-        sys.exit("[!] built binary not found under " + build)
+    # Build both executables required by the deobfuscator.
+    run(["cmake", "--build", build, "--config", "Release",
+         "--target", "Luau.Repl.CLI", "Luau.Ast.CLI", "--parallel"])
+    names = ("luau.exe", "luau-ast.exe") if os.name == "nt" else ("luau", "luau-ast")
+    for exe in names:
+        for cand in (os.path.join(build, "Release", exe), os.path.join(build, exe)):
+            if os.path.exists(cand):
+                os.makedirs(BIN, exist_ok=True)
+                shutil.copy2(cand, os.path.join(BIN, exe))
+                print("[+] wrote " + os.path.join(BIN, exe), file=sys.stderr)
+                break
+        else:
+            sys.exit("[!] built binary not found under " + build + ": " + exe)
     if tmp:
         shutil.rmtree(tmp, ignore_errors=True)
 
