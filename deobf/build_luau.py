@@ -54,6 +54,8 @@ def main():
                     help="parallel compiler jobs (default: %(default)s; keep this low on iSH)")
     ap.add_argument("--no-lto", action="store_true",
                     help="disable link-time optimization to reduce iSH memory use")
+    ap.add_argument("--static", action="store_true",
+                    help="static-link the executables (may fail on minimal Alpine/iSH installs)")
     args = ap.parse_args()
     if args.jobs < 1:
         ap.error("--jobs must be at least 1")
@@ -76,10 +78,11 @@ def main():
         opt = "-O3" + ("" if args.no_lto else " -flto")
         if not args.portable:
             opt += " -march=native"
+        link = ("-static " if args.static else "") + opt
         cfg += ["-DCMAKE_C_COMPILER=gcc", "-DCMAKE_CXX_COMPILER=g++",
                 "-DCMAKE_C_FLAGS_RELEASE=%s -DNDEBUG" % opt,
                 "-DCMAKE_CXX_FLAGS_RELEASE=%s -DNDEBUG" % opt,
-                "-DCMAKE_EXE_LINKER_FLAGS=-static " + opt]
+                "-DCMAKE_EXE_LINKER_FLAGS=" + link]
     run(cfg)
     # Build both executables required by the deobfuscator.
     run(["cmake", "--build", build, "--config", "Release",
